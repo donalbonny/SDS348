@@ -1,0 +1,158 @@
+```{r global_options, include=FALSE}
+library(knitr)
+opts_chunk$set(fig.align="center", fig.height=4, fig.width=5)
+library(ggplot2)
+library(tidyverse)
+theme_set(theme_bw(base_size=12))
+```
+
+## Project 3, Part II 
+*Enter your name and EID here*
+Vinh Pham. EID: vp 6445
+### Statistical analysis
+
+```{r}
+# R code for statistical analysis goes here
+
+# firstly, I create the new variable to count the number of different isoforms in different loci in each organism and save as new data frame p53_isoform: 
+p53 <- read.csv("p53.csv")
+
+p53 %>%  add_count(Organism) -> p53_isoform
+
+# Secondly, I define which organisms are mammals in the dataset using itelse function and created the new variable called Mammal, saved as new_p53
+
+p53_isoform %>% mutate(Mammal = ifelse(str_detect(taxonomy, "Mammal"), "mammal", "non_mammal")) -> new_p53
+head(new_p53)
+
+```
+
+```{r}
+
+# R code for statistical analysis goes here
+
+# I perform the PCA to find out which characters are most distinguishing between organisms or between mammals and non-mammals, then make 2 plots colored by Organism and Mammal.
+
+new_p53 %>%  select( - c(Locus, Defnition, Organism, taxonomy,Mammal)) %>% 
+scale() %>%                 # scale to 0 mean and unit variance
+prcomp() ->                 # do PCA
+pca                        # store result as pca 
+
+# now display the results from the PCA analysis
+pca
+
+# combine original data frame with PCs
+
+pca_p53 <- data.frame(new_p53, pca$x)
+
+
+# Make the plots of PC1 and PC2, colored by Organism and Mammals 
+
+ggplot(pca_p53, aes(x=PC1, y=PC2, color= Organism )) + geom_point()
+ggplot(pca_p53, aes(x=PC1, y=PC2, color= Mammal )) + geom_point()
+
+# capture the rotation matrix in a data frame
+rotation_data <- data.frame(pca$rotation, variable=row.names(pca$rotation))
+# define a pleasing arrow style
+arrow_style <- arrow(length = unit(0.05, "inches"),
+                     type = "closed")
+# now plot, using geom_segment() for arrows and geom_text for labels
+ggplot(rotation_data) + 
+  geom_segment(aes(xend=PC1, yend=PC2), x=0, y=0, arrow=arrow_style) + 
+  geom_text(aes(x=PC1, y=PC2, label=variable), hjust=0, size=3, color='red') + 
+  xlim(-1.,1.25) + 
+  ylim(-1.,1.) +
+  coord_fixed() # fix aspect ratio to 1:1
+
+# finally, I looked at the percent variance explained:
+percent <- 100*pca$sdev^2/sum(pca$sdev^2)
+percent
+
+```
+*Discussion for statistical analysis goes here.*
+
+I did PCA to find out which characters are most distinguishing between organisms or mammal and non-mammal. Firstly, I performed a PCA on the new_p53 data and plotted  PC1 and PC2 graph  to see if there is any difference pattern  between mammal and non-mammal or between different organisms. Then created a plot of the rotation matrix to see which variables contribute more for PC1 and PC2. 
+
+Based on PCA plot, PC2 seems to separate mammals and non-mammals better than PC1. Most mammals score positive on PC2. Different organisms did not separate clearly on PC1 or PC2. 
+
+Based on the rotation matrix, both number of amino acid and number of isoforms contribute to PC1 and PC2. However, both the number of amino acid and number of isoforms contribute negatively to PC1. The number of amino acid contributes positively to PC2 and number of isoform contributes negatively to PC2. 
+Then I looked at the percent variance explained. The first component explains 56.6% of the variance and the second 43.37%.
+
+*Note that there is the case where the same isoform appears in the same organism but still was counted as the different isoform since I want to focus on the number of isoforms in different loci. 
+
+### Plot 1
+
+```{r}
+# R code for plot 1 goes here
+
+# Question: What is the difference in the number of amino acid (aa_length)  between mammals and non-mammals? 
+
+# create the box plot for the aa_length variable in mammals and non-mammals 
+
+new_p53 %>% ggplot(aes(x= factor(Mammal), y = aa_length, fill = Mammal))+ geom_boxplot() 
+
+# perform  t-test to see if there is any significant difference between number of aa in mammals and non-mammals
+
+t.test(new_p53$aa_length~ new_p53$Mammal)
+
+```
+*Discussion for plot 1 goes here.*
+
+I chose to use the box plot to compare the number of amino acid or p53 protein length (aa_length) in mammals and non-mammals. 
+
+The box-plot show that Mammals seems to have higher number of amino acid since the median value is higher compared to the non-mammals.
+
+
+Then, I performed the t-test to check if there is significant difference between the number of amino acid between mammals and non-mammals. However, the t-test showed that the p value is 0.1352, which illustrated there is no siginificant difference between the p53 protein length (or number of amino acid) between mammals and non-mammals. 
+
+### Plot 2
+
+```{r}
+
+# R code for plot 2 goes here
+
+
+# Question: Is there any correlation  between number of isoform  and aa length? Is the correlation similar between mammals and non mammals? 
+
+# perform a ggplot of number of amino acids (aa_length) and number of isoforms in Mammals catergory
+
+
+new_p53 %>% ggplot(aes(x = aa_length, y = n, color = Mammal)) + geom_point()+ facet_wrap(~Mammal) + geom_smooth(aes(group = Mammal), method = lm, color = "black")
+
+
+# perfrom the correlation test between number of aa (aa_length) and number of isoform in mammals and non-mammals
+
+# first,  created the new data frame using filter function to filter only the obervations which are mammals or non-mammals: 
+
+mammal <- filter(new_p53, Mammal == 'mammal')
+
+non_mammal <- filter(new_p53, Mammal == 'non_mammal')
+
+
+
+# Then, I performed the correlation test  comparing the number of aa (aa _length) and number of isoform(n) in mammals and non-mammals:
+
+
+cor.test(mammal$aa_length, mammal$n, method = "pearson")
+cor.test(non_mammal$aa_length, non_mammal$n, method = "pearson")
+
+
+```
+
+*Discussion for plot 2 goes here.*
+
+I focus on three variables: number of aa (aa_length variable), number of isoforms (n variable) in mammals and non-mammals (Mammals variable). I first performed a ggplot to plot the number of a and number of isoform in both catergories: mammals and non-mammals. 
+
+The scatterplot show not strong linear relationship between these two variables in Mammals and moderate positive correlation in non-mammals. The lm method was used for the linear smooth. 
+
+To confirm my observation on the scatterplot, I then performed the correlation test between these two variables. 
+Non-mammals test shows positive correlation between number of aa (aa_length) and number of isoform (correlation coefficient r = 0.635, p value = 0.0146) but mammals did not show the correlation between these two variables (correlation coefficient r =0.035, p value = 0.8628)
+
+### Concluding Discussion
+
+*Discussion for the overarching question goes here.*
+
+My question here is: "what is the difference between p53 proteins in different organisms ( including mammals and non-mammals)?"
+
+So firstly, I compared the number of amino acid in different p53 proteins in different mammals and non-mammals. p53 protein in mammals seems to have higher number of amino acid in p53. However, the t-test showed that there is no significant difference between the length of p53 protein ( or number of amino acid). 
+Secondly, I also tested if there is any correlation between number of amino acid and number of isoforms in different organisms or mammals and non-mammals. Non-mammals seems to have a moderate correlation between these  two variables. However, there is no significant correlation between number of amino acid and number of isoforms. The PCA analysis also supports the brief overview of how each character (number of amino acid and number of isoforms) separate in mammals and non-mammals as well as in different organisms. 
+
